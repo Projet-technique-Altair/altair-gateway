@@ -1,0 +1,53 @@
+# -------------------------
+# Rust / Cargo
+# -------------------------
+/target/
+/Cargo.lock
+
+# Build artifacts
+*.rlib
+*.so
+*.dll
+*.dylib
+
+# Rust core dumps
+core
+*.core
+
+# Rustfmt temporary files
+**/*.rs.bk
+
+# -------------------------
+# VSCode
+# -------------------------
+.vscode/
+*.code-workspace
+
+# -------------------------
+# Logs / Runtime
+# -------------------------
+*.log
+*.tmp
+
+# -------------------------
+# OS / Editor junk files
+# -------------------------
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# -------------------------
+# Docker
+# -------------------------
+/docker/*.pid
+/docker/*.sock
+/docker/logs/
+.env
+.env.local
+
+# -------------------------
+# Node (if frontend installed nearby)
+# -------------------------
+node_modules/
+dist/
