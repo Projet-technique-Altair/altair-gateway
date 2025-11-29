@@ -1,31 +1,28 @@
 use axum::{
     Router,
     routing::get,
-    extract::{Path, State},
+    extract::State,
     Json,
 };
-use serde_json::json;
-
+use serde_json::Value;
 use crate::state::AppState;
 
 pub fn labs_routes() -> Router<AppState> {
     Router::new()
         .route("/labs", get(list_labs))
-        .route("/labs/:id", get(get_lab))
 }
 
 async fn list_labs(
     State(state): State<AppState>
-) -> Json<serde_json::Value> {
-    let labs = state.labs.lock().unwrap().clone();
-    Json(json!(labs))
-}
+) -> Json<Value> {
+    let url = format!("{}/labs", state.labs_url);
 
-async fn get_lab(
-    Path(id): Path<String>,
-    State(state): State<AppState>
-) -> Json<serde_json::Value> {
-    let labs = state.labs.lock().unwrap();
-    let lab = labs.iter().find(|l| l.lab_id == id).cloned();
-    Json(json!(lab))
+    let resp = reqwest::get(url)
+        .await
+        .expect("Failed to reach Labs MS")
+        .json::<Value>()
+        .await
+        .expect("Failed to parse Labs MS response");
+
+    Json(resp)
 }

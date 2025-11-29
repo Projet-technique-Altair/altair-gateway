@@ -1,39 +1,31 @@
-mod routes;
-mod state;
-mod utils;
-
-use axum::Router;
-use crate::routes::{
-    users::users_routes,
-    labs::labs_routes,
-    sessions::sessions_routes,
-    webshell::webshell_routes,
-};
-use state::AppState;
-use tower_http::cors::{CorsLayer, Any};
+use axum::{Router};
+use std::env;
 use tokio::net::TcpListener;
+
+mod state;
+mod routes;
+
+use state::AppState;
 
 #[tokio::main]
 async fn main() {
-    let state = AppState::new();
+    dotenvy::dotenv().ok();
+
+    let state = AppState {
+        users_url: env::var("USERS_MS_URL").unwrap(),
+        labs_url: env::var("LABS_MS_URL").unwrap(),
+        sessions_url: env::var("SESSIONS_MS_URL").unwrap(),
+    };
 
     let app = Router::new()
-        .merge(users_routes())
-        .merge(labs_routes())
-        .merge(sessions_routes())
-        .merge(webshell_routes())
-        .layer(
-            CorsLayer::new()
-                .allow_origin(Any)
-                .allow_methods(Any)
-                .allow_headers(Any),
-        )
+        .merge(routes::labs::labs_routes())
+        .merge(routes::users::users_routes())
+        .merge(routes::sessions::sessions_routes())
+        .merge(routes::webshell::webshell_routes())
         .with_state(state);
 
-    let addr = "0.0.0.0:3000";
-    let listener = TcpListener::bind(addr).await.unwrap();
-
-    println!("🚀 ALTair Gateway running at http://{addr}");
+    // ➜ Axum 0.7 façon correcte de lancer un serveur
+    let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();
 
     axum::serve(listener, app)
         .await
