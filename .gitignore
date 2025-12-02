@@ -43,7 +43,6 @@ Thumbs.db
 /docker/*.pid
 /docker/*.sock
 /docker/logs/
-.env
 .env.local
 
 # -------------------------
