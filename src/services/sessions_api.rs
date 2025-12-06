@@ -1,45 +1,27 @@
-use reqwest::Client;
 use serde_json::Value;
+use crate::services::common::HttpClient;
 
 #[derive(Clone)]
 pub struct SessionsApi {
-    base: String,
-    client: Client,
+    base_url: String,
+    http: HttpClient,
 }
 
 impl SessionsApi {
-    pub fn new(base: String) -> Self {
+    pub fn new(base_url: String) -> Self {
         Self {
-            base,
-            client: Client::new(),
+            base_url,
+            http: HttpClient::new(),
         }
     }
 
-    pub async fn get(&self, endpoint: &str) -> Result<Value, reqwest::Error> {
-        Ok(self.client
-            .get(format!("{}{}", self.base, endpoint))
-            .send()
-            .await?
-            .json::<Value>()
-            .await?)
+    pub async fn get(&self, path: &str) -> reqwest::Result<Value> {
+        let url = format!("{}{}", self.base_url, path);
+        self.http.get_json(&url).await
     }
 
-    pub async fn post(&self, endpoint: &str, body: Value) -> Result<Value, reqwest::Error> {
-        Ok(self.client
-            .post(format!("{}{}", self.base, endpoint))
-            .json(&body)
-            .send()
-            .await?
-            .json::<Value>()
-            .await?)
-    }
-
-    pub async fn delete(&self, endpoint: &str) -> Result<Value, reqwest::Error> {
-        Ok(self.client
-            .delete(format!("{}{}", self.base, endpoint))
-            .send()
-            .await?
-            .json::<Value>()
-            .await?)
+    pub async fn post(&self, path: &str, body: Value) -> reqwest::Result<Value> {
+        let url = format!("{}{}", self.base_url, path);
+        self.http.post_json(&url, &body).await
     }
 }

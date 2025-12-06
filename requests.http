@@ -1,0 +1,153 @@
+############################################################
+# USERS-MS TESTS (PORT 3001)
+############################################################
+
+### USERS-MS Health
+GET http://localhost:3001/health
+
+### USERS-MS /me
+GET http://localhost:3001/me
+
+
+
+############################################################
+# LABS-MS TESTS (PORT 3002)
+############################################################
+
+### LABS-MS Health
+GET http://localhost:3002/health
+
+### LABS-MS List labs
+GET http://localhost:3002/labs
+
+
+
+############################################################
+# SESSIONS-MS TESTS (PORT 3003)
+############################################################
+
+### SESSIONS-MS Health
+GET http://localhost:3003/health
+
+### SESSIONS-MS List sessions
+GET http://localhost:3003/sessions
+
+### SESSIONS-MS Start session
+POST http://localhost:3003/sessions/start
+Content-Type: application/json
+
+{
+  "user_id": "11111111-1111-1111-1111-111111111111",
+  "lab_id": "22222222-2222-2222-2222-222222222222"
+}
+
+### SESSIONS-MS Stop session
+POST http://localhost:3003/sessions/stop
+Content-Type: application/json
+
+{
+  "session_id": "33333333-3333-3333-3333-333333333333"
+}
+
+
+
+############################################################
+# GATEWAY TESTS (PORT 3000)
+############################################################
+
+### Gateway Health
+GET http://localhost:3000/health
+
+### Gateway → Users-MS
+GET http://localhost:3000/users/me
+
+### Gateway → Labs-MS
+GET http://localhost:3000/labs
+
+### Gateway → Sessions-MS (list)
+GET http://localhost:3000/sessions
+
+### Gateway → Sessions-MS (start)
+POST http://localhost:3000/sessions/start
+Content-Type: application/json
+
+{
+  "user_id": "11111111-1111-1111-1111-111111111111",
+  "lab_id": "22222222-2222-2222-2222-222222222222"
+}
+
+### Gateway → Sessions-MS (stop)
+POST http://localhost:3000/sessions/stop
+Content-Type: application/json
+
+{
+  "session_id": "33333333-3333-3333-3333-333333333333"
+}
+
+
+
+############################################################
+# TESTS ARCHITECTURE – LES MS NE DOIVENT PAS PARLER ENTRE EUX
+############################################################
+
+### Users-MS ne doit PAS exposer les labs
+GET http://localhost:3001/labs
+
+### Labs-MS ne doit PAS exposer sessions
+GET http://localhost:3002/sessions
+
+### Sessions-MS ne doit PAS exposer users
+GET http://localhost:3003/me
+
+
+
+############################################################
+# TESTS COHÉRENCE GATEWAY <-> MS
+############################################################
+
+### Comparer directement Labs-MS vs Gateway Labs
+GET http://localhost:3002/labs
+
+###
+GET http://localhost:3000/labs
+
+### Comparer Sessions-MS vs Gateway Sessions
+GET http://localhost:3003/sessions
+
+###
+GET http://localhost:3000/sessions
+
+
+
+############################################################
+# END-TO-END MVP FLOW
+############################################################
+
+### Step 1 – Récupérer l'utilisateur
+GET http://localhost:3000/users/me
+
+### Step 2 – Récupérer tous les labs
+GET http://localhost:3000/labs
+
+### Step 3 – Démarrer un lab
+POST http://localhost:3000/sessions/start
+Content-Type: application/json
+
+{
+  "user_id": "11111111-1111-1111-1111-111111111111",
+  "lab_id": "22222222-2222-2222-2222-222222222222"
+}
+
+### Step 4 – Vérifier les sessions actives
+GET http://localhost:3000/sessions
+
+### Step 5 – Stopper un lab
+POST http://localhost:3000/sessions/stop
+Content-Type: application/json
+
+{
+  "session_id": "33333333-3333-3333-3333-333333333333"
+}
+
+### Step 6 – Vérifier la santé globale du Gateway
+GET http://localhost:3000/health
