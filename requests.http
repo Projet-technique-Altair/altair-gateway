@@ -1,4 +1,13 @@
 ############################################################
+# VARIABLES (ADAPTE SI BESOIN)
+############################################################
+@USER_ID = 1af1fb9e-5b6d-4f1b-be59-4a13bf54a782
+@LAB_ID = 456796d9-a308-4fce-8659-b70c9e17985b
+@SESSION_ID = 0d81aade-ce5c-406f-883e-cb5a67ef5793
+
+
+
+############################################################
 # USERS-MS TESTS (PORT 3001)
 ############################################################
 
@@ -37,8 +46,8 @@ POST http://localhost:3003/sessions/start
 Content-Type: application/json
 
 {
-  "user_id": "11111111-1111-1111-1111-111111111111",
-  "lab_id": "22222222-2222-2222-2222-222222222222"
+  "user_id": "{{USER_ID}}",
+  "lab_id": "{{LAB_ID}}"
 }
 
 ### SESSIONS-MS Stop session
@@ -46,9 +55,9 @@ POST http://localhost:3003/sessions/stop
 Content-Type: application/json
 
 {
-  "session_id": "33333333-3333-3333-3333-333333333333"
+  "session_id": "{{SESSION_ID}}"
 }
-
+///Remplacer session id par la vraie id
 
 
 ############################################################
@@ -72,8 +81,8 @@ POST http://localhost:3000/sessions/start
 Content-Type: application/json
 
 {
-  "user_id": "11111111-1111-1111-1111-111111111111",
-  "lab_id": "22222222-2222-2222-2222-222222222222"
+  "user_id": "{{USER_ID}}",
+  "lab_id": "{{LAB_ID}}"
 }
 
 ### Gateway → Sessions-MS (stop)
@@ -81,22 +90,22 @@ POST http://localhost:3000/sessions/stop
 Content-Type: application/json
 
 {
-  "session_id": "33333333-3333-3333-3333-333333333333"
+  "session_id": "{{SESSION_ID}}"
 }
-
+/// A remplacer par un vrai session
 
 
 ############################################################
-# TESTS ARCHITECTURE – LES MS NE DOIVENT PAS PARLER ENTRE EUX
+# TESTS ARCHITECTURE – ISOLATION DES MS
 ############################################################
 
-### Users-MS ne doit PAS exposer les labs
+### Users-MS ne doit PAS exposer les labs (404 attendu)
 GET http://localhost:3001/labs
 
-### Labs-MS ne doit PAS exposer sessions
+### Labs-MS ne doit PAS exposer sessions (404 attendu)
 GET http://localhost:3002/sessions
 
-### Sessions-MS ne doit PAS exposer users
+### Sessions-MS ne doit PAS exposer users (404 attendu)
 GET http://localhost:3003/me
 
 
@@ -105,22 +114,22 @@ GET http://localhost:3003/me
 # TESTS COHÉRENCE GATEWAY <-> MS
 ############################################################
 
-### Comparer directement Labs-MS vs Gateway Labs
+### Labs-MS direct
 GET http://localhost:3002/labs
 
-###
+### Labs via Gateway
 GET http://localhost:3000/labs
 
-### Comparer Sessions-MS vs Gateway Sessions
+### Sessions-MS direct
 GET http://localhost:3003/sessions
 
-###
+### Sessions via Gateway
 GET http://localhost:3000/sessions
 
 
 
 ############################################################
-# END-TO-END MVP FLOW
+# END-TO-END MVP FLOW (RÉALISTE)
 ############################################################
 
 ### Step 1 – Récupérer l'utilisateur
@@ -134,8 +143,8 @@ POST http://localhost:3000/sessions/start
 Content-Type: application/json
 
 {
-  "user_id": "11111111-1111-1111-1111-111111111111",
-  "lab_id": "22222222-2222-2222-2222-222222222222"
+  "user_id": "{{USER_ID}}",
+  "lab_id": "{{LAB_ID}}"
 }
 
 ### Step 4 – Vérifier les sessions actives
@@ -146,7 +155,7 @@ POST http://localhost:3000/sessions/stop
 Content-Type: application/json
 
 {
-  "session_id": "33333333-3333-3333-3333-333333333333"
+  "session_id": "{{SESSION_ID}}"
 }
 
 ### Step 6 – Vérifier la santé globale du Gateway

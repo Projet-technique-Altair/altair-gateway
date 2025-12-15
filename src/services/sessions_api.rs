@@ -20,7 +20,11 @@ impl SessionsApi {
         self.http.get_json(&url).await
     }
 
-    pub async fn post(&self, path: &str, body: Value) -> reqwest::Result<Value> {
+    pub async fn post(
+        &self,
+        path: &str,
+        body: Value,
+    ) -> reqwest::Result<Value> {
         let url = format!("{}{}", self.base_url, path);
         self.http.post_json(&url, &body).await
     }

@@ -1,17 +1,12 @@
 use axum::{
     Router,
     routing::{get, post},
+    extract::State,
     Json,
-    extract::{State, Json as AxumJson},
 };
 use serde_json::{json, Value};
 use crate::state::AppState;
 
-//
-// ─────────────────────────────────────────────
-//   ROUTES
-// ─────────────────────────────────────────────
-//
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/health", get(health))
@@ -20,11 +15,6 @@ pub fn routes() -> Router<AppState> {
         .route("/stop", post(stop_session))
 }
 
-//
-// ─────────────────────────────────────────────
-//   HEALTHCHECK
-// ─────────────────────────────────────────────
-//
 async fn health() -> Json<Value> {
     Json(json!({
         "status": "ok",
@@ -32,33 +22,10 @@ async fn health() -> Json<Value> {
     }))
 }
 
-//
-// ─────────────────────────────────────────────
-//   INPUT STRUCTURES
-// ─────────────────────────────────────────────
-//
-#[derive(serde::Deserialize, serde::Serialize)]
-struct StartInput {
-    user_id: String,
-    lab_id: String,
-}
-
-#[derive(serde::Deserialize, serde::Serialize)]
-struct StopInput {
-    session_id: String,
-}
-
-//
-// ─────────────────────────────────────────────
-//   HANDLERS
-// ─────────────────────────────────────────────
-//
-
-/// GET /sessions  → forward au Sessions-MS
+/// GET /sessions
 async fn list_sessions(
-    State(state): State<AppState>
+    State(state): State<AppState>,
 ) -> Json<Value> {
-
     let resp = state.sessions
         .get("/sessions")
         .await
@@ -69,14 +36,13 @@ async fn list_sessions(
     Json(resp)
 }
 
-/// POST /sessions/start  → forward au Sessions-MS
+/// POST /sessions/start
 async fn start_session(
     State(state): State<AppState>,
-    AxumJson(input): AxumJson<StartInput>
+    Json(payload): Json<Value>,
 ) -> Json<Value> {
-
     let resp = state.sessions
-        .post("/sessions/start", json!(input))
+        .post("/sessions/start", payload)
         .await
         .unwrap_or_else(|_| json!({
             "error": "sessions-ms unreachable"
@@ -85,14 +51,13 @@ async fn start_session(
     Json(resp)
 }
 
-/// POST /sessions/stop → forward au Sessions-MS
+/// POST /sessions/stop
 async fn stop_session(
     State(state): State<AppState>,
-    AxumJson(input): AxumJson<StopInput>
+    Json(payload): Json<Value>,
 ) -> Json<Value> {
-
     let resp = state.sessions
-        .post("/sessions/stop", json!(input))
+        .post("/sessions/stop", payload)
         .await
         .unwrap_or_else(|_| json!({
             "error": "sessions-ms unreachable"

@@ -11,6 +11,7 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/health", get(health))
         .route("/", get(list_labs))
+        .route("/:id", get(get_lab_by_id))
 }
 
 async fn health() -> Json<Value> {
@@ -23,13 +24,28 @@ async fn health() -> Json<Value> {
 async fn list_labs(
     State(state): State<AppState>
 ) -> Json<Value> {
-
     let resp = state.labs
         .get("/labs")
         .await
-        .unwrap_or(json!({
-            "error": "labs-ms unreachable"
-        }));
+        .unwrap_or_else(|_| json!({ "error": "labs-ms unreachable" }));
 
-    Json(resp)
+    Json(json!({
+        "status": "ok",
+        "data": resp
+    }))
+}
+
+async fn get_lab_by_id(
+    State(state): State<AppState>,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Json<Value> {
+    let resp = state.labs
+        .get(&format!("/labs/{id}"))
+        .await
+        .unwrap_or_else(|_| json!({ "error": "lab not found" }));
+
+    Json(json!({
+        "status": "ok",
+        "data": resp
+    }))
 }
