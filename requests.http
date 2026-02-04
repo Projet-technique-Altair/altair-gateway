@@ -1,0 +1,162 @@
+############################################################
+# VARIABLES (ADAPTE SI BESOIN)
+############################################################
+@USER_ID = 1af1fb9e-5b6d-4f1b-be59-4a13bf54a782
+@LAB_ID = 456796d9-a308-4fce-8659-b70c9e17985b
+@SESSION_ID = 0d81aade-ce5c-406f-883e-cb5a67ef5793
+
+
+
+############################################################
+# USERS-MS TESTS (PORT 3001)
+############################################################
+
+### USERS-MS Health
+GET http://localhost:3001/health
+
+### USERS-MS /me
+GET http://localhost:3001/me
+
+
+
+############################################################
+# LABS-MS TESTS (PORT 3002)
+############################################################
+
+### LABS-MS Health
+GET http://localhost:3002/health
+
+### LABS-MS List labs
+GET http://localhost:3002/labs
+
+
+
+############################################################
+# SESSIONS-MS TESTS (PORT 3003)
+############################################################
+
+### SESSIONS-MS Health
+GET http://localhost:3003/health
+
+### SESSIONS-MS List sessions
+GET http://localhost:3003/sessions
+
+### SESSIONS-MS Start session
+POST http://localhost:3003/sessions/start
+Content-Type: application/json
+
+{
+  "user_id": "{{USER_ID}}",
+  "lab_id": "{{LAB_ID}}"
+}
+
+### SESSIONS-MS Stop session
+POST http://localhost:3003/sessions/stop
+Content-Type: application/json
+
+{
+  "session_id": "{{SESSION_ID}}"
+}
+///Remplacer session id par la vraie id
+
+
+############################################################
+# GATEWAY TESTS (PORT 3000)
+############################################################
+
+### Gateway Health
+GET http://localhost:3000/health
+
+### Gateway → Users-MS
+GET http://localhost:3000/users/me
+
+### Gateway → Labs-MS
+GET http://localhost:3000/labs
+
+### Gateway → Sessions-MS (list)
+GET http://localhost:3000/sessions
+
+### Gateway → Sessions-MS (start)
+POST http://localhost:3000/sessions/start
+Content-Type: application/json
+
+{
+  "user_id": "{{USER_ID}}",
+  "lab_id": "{{LAB_ID}}"
+}
+
+### Gateway → Sessions-MS (stop)
+POST http://localhost:3000/sessions/stop
+Content-Type: application/json
+
+{
+  "session_id": "{{SESSION_ID}}"
+}
+/// A remplacer par un vrai session
+
+
+############################################################
+# TESTS ARCHITECTURE – ISOLATION DES MS
+############################################################
+
+### Users-MS ne doit PAS exposer les labs (404 attendu)
+GET http://localhost:3001/labs
+
+### Labs-MS ne doit PAS exposer sessions (404 attendu)
+GET http://localhost:3002/sessions
+
+### Sessions-MS ne doit PAS exposer users (404 attendu)
+GET http://localhost:3003/me
+
+
+
+############################################################
+# TESTS COHÉRENCE GATEWAY <-> MS
+############################################################
+
+### Labs-MS direct
+GET http://localhost:3002/labs
+
+### Labs via Gateway
+GET http://localhost:3000/labs
+
+### Sessions-MS direct
+GET http://localhost:3003/sessions
+
+### Sessions via Gateway
+GET http://localhost:3000/sessions
+
+
+
+############################################################
+# END-TO-END MVP FLOW (RÉALISTE)
+############################################################
+
+### Step 1 – Récupérer l'utilisateur
+GET http://localhost:3000/users/me
+
+### Step 2 – Récupérer tous les labs
+GET http://localhost:3000/labs
+
+### Step 3 – Démarrer un lab
+POST http://localhost:3000/sessions/start
+Content-Type: application/json
+
+{
+  "user_id": "{{USER_ID}}",
+  "lab_id": "{{LAB_ID}}"
+}
+
+### Step 4 – Vérifier les sessions actives
+GET http://localhost:3000/sessions
+
+### Step 5 – Stopper un lab
+POST http://localhost:3000/sessions/stop
+Content-Type: application/json
+
+{
+  "session_id": "{{SESSION_ID}}"
+}
+
+### Step 6 – Vérifier la santé globale du Gateway
+GET http://localhost:3000/health
