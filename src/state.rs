@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use dashmap::DashMap;
+use std::collections::HashMap;
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -16,14 +16,12 @@ impl AppState {
 
         services.insert(
             "users".into(),
-            std::env::var("USERS_MS_URL")
-                .unwrap_or_else(|_| "http://localhost:3001".to_string()),
+            std::env::var("USERS_MS_URL").unwrap_or_else(|_| "http://localhost:3001".to_string()),
         );
 
         services.insert(
             "labs".into(),
-            std::env::var("LABS_MS_URL")
-                .unwrap_or_else(|_| "http://localhost:3002".to_string()),
+            std::env::var("LABS_MS_URL").unwrap_or_else(|_| "http://localhost:3002".to_string()),
         );
 
         services.insert(
@@ -40,8 +38,7 @@ impl AppState {
 
         services.insert(
             "groups".into(),
-            std::env::var("GROUPS_MS_URL")
-                .unwrap_or_else(|_| "http://localhost:3006".to_string()),
+            std::env::var("GROUPS_MS_URL").unwrap_or_else(|_| "http://localhost:3006".to_string()),
         );
 
         Self {

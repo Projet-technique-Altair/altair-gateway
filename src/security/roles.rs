@@ -5,7 +5,6 @@ pub enum Role {
     Learner,
 }
 
-
 impl Role {
     pub fn from_str(role: &str) -> Option<Self> {
         match role {

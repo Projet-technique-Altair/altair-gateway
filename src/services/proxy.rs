@@ -1,9 +1,7 @@
-use axum::http::header::{
-    HOST, CONTENT_LENGTH, CONNECTION, ORIGIN, REFERER,
-};
+use axum::http::header::{CONNECTION, CONTENT_LENGTH, HOST, ORIGIN, REFERER};
 
 use axum::{
-    body::{Body, to_bytes},
+    body::{to_bytes, Body},
     extract::{Path, State},
     http::{Request, StatusCode},
     response::Response,
@@ -17,27 +15,17 @@ pub async fn proxy(
     Path((service, rest)): Path<(String, String)>,
     req: Request<Body>,
 ) -> Result<Response<Body>, StatusCode> {
-
     let method_str = req.method().to_string();
     let uri_str = req.uri().to_string();
 
+    let base_url = state.services.get(&service).ok_or(StatusCode::NOT_FOUND)?;
 
-    let base_url = state
-        .services
-        .get(&service)
-        .ok_or(StatusCode::NOT_FOUND)?;
-
-    let url = format!(
-        "{}/{}",
-        base_url.trim_end_matches('/'),
-        rest
-    );
+    let url = format!("{}/{}", base_url.trim_end_matches('/'), rest);
 
     let client = Client::new();
 
-    let method = reqwest::Method::from_bytes(
-        req.method().as_str().as_bytes()
-    ).map_err(|_| StatusCode::BAD_GATEWAY)?;
+    let method = reqwest::Method::from_bytes(req.method().as_str().as_bytes())
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
 
     let mut request = client.request(method, url);
 
@@ -57,7 +45,6 @@ pub async fn proxy(
         }
     }
 
-
     println!(
         "[PROXY] → {} {} -> {}",
         method_str,
@@ -70,12 +57,10 @@ pub async fn proxy(
             .url()
     );
 
-
     // Forward body
     let body_bytes = to_bytes(req.into_body(), usize::MAX)
         .await
         .map_err(|_| StatusCode::BAD_GATEWAY)?;
-
 
     let response = request
         .body(body_bytes)
@@ -83,17 +68,11 @@ pub async fn proxy(
         .await
         .map_err(|_| StatusCode::BAD_GATEWAY)?;
 
-
-    println!(
-        "[PROXY] ← status from {} = {}",
-        service,
-        response.status()
-    );
-
+    println!("[PROXY] ← status from {} = {}", service, response.status());
 
     // Extract data BEFORE consuming response
-    let status = StatusCode::from_u16(response.status().as_u16())
-        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    let status =
+        StatusCode::from_u16(response.status().as_u16()).map_err(|_| StatusCode::BAD_GATEWAY)?;
 
     let content_type = response
         .headers()
@@ -106,13 +85,11 @@ pub async fn proxy(
         .await
         .map_err(|_| StatusCode::BAD_GATEWAY)?;
 
-
     println!(
         "[PROXY] ← body from {} = {}",
         service,
         String::from_utf8_lossy(&body)
     );
-
 
     // Build Axum response
     let mut axum_response = Response::new(Body::from(body));

@@ -1,10 +1,10 @@
+use axum::extract::State;
 use axum::{
     body::Body,
-    http::{Request, HeaderName, HeaderValue},
+    http::{HeaderName, HeaderValue, Request},
     middleware::Next,
     response::Response,
 };
-use axum::extract::State;
 use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation};
 use serde::Deserialize;
 
@@ -13,17 +13,15 @@ use crate::security::roles::Role;
 use crate::services::users_client::resolve_user_id;
 use crate::state::AppState;
 
-
-
-
 #[derive(Debug, Deserialize)]
 struct RealmAccess {
     roles: Vec<String>,
 }
 
-
 #[derive(Debug, Deserialize)]
-struct Jwks { keys: Vec<Jwk> }
+struct Jwks {
+    keys: Vec<Jwk>,
+}
 
 #[derive(Debug, Deserialize)]
 struct Jwk {
@@ -58,16 +56,11 @@ struct Claims {
     preferred_username: Option<String>,
 }
 
-
-
-
 const HDR_ROLES: &str = "x-altair-roles";
 const HDR_KEYCLOAK_ID: &str = "x-altair-keycloak-id";
 const HDR_EMAIL: &str = "x-altair-email";
 const HDR_NAME: &str = "x-altair-name";
 const HDR_USER_ID: &str = "x-altair-user-id";
-
-
 
 use std::collections::HashSet;
 
@@ -99,23 +92,16 @@ fn extract_roles(claims: &Claims) -> Vec<Role> {
     set.into_iter().collect()
 }
 
-
-
-
-
 pub async fn jwt_middleware(
     State(state): State<AppState>,
     mut req: Request<Body>,
     next: Next,
 ) -> Result<Response, ApiError> {
-
     // Public health endpoints (no auth)
     let path = req.uri().path();
     if path == "/health" || path.ends_with("/health") {
         return Ok(next.run(req).await);
     }
-
-
 
     let auth = req
         .headers()
@@ -127,9 +113,7 @@ pub async fn jwt_middleware(
         .strip_prefix("Bearer ")
         .ok_or_else(|| ApiError::unauthorized("Invalid Authorization header"))?;
 
-    let header = decode_header(token)
-        .map_err(|_| ApiError::unauthorized("Invalid JWT header"))?;
-        
+    let header = decode_header(token).map_err(|_| ApiError::unauthorized("Invalid JWT header"))?;
 
     let kid = header
         .kid
@@ -165,7 +149,7 @@ pub async fn jwt_middleware(
     validation.validate_aud = false; // MVP
 
     //let token_data = decode::<Claims>(token, &decoding_key, &validation)
-        //.map_err(|_| ApiError::unauthorized("Invalid JWT"))?;
+    //.map_err(|_| ApiError::unauthorized("Invalid JWT"))?;
 
     println!("===== JWT DEBUG =====");
     println!("Expected issuer      : {}", issuer);
@@ -173,15 +157,10 @@ pub async fn jwt_middleware(
     println!("Validation issuer set : {:?}", validation.iss);
     println!("Validation aud        : {:?}", validation.aud);
 
-
-    let token_data = decode::<Claims>(token, &decoding_key, &validation)
-        .map_err(|e| {
-            println!("JWT decode error: {:?}", e);
-            ApiError::unauthorized("Invalid JWT")
-        })?;
-
-
-    
+    let token_data = decode::<Claims>(token, &decoding_key, &validation).map_err(|e| {
+        println!("JWT decode error: {:?}", e);
+        ApiError::unauthorized("Invalid JWT")
+    })?;
 
     let keycloak_id = token_data.claims.sub.clone();
 
@@ -198,15 +177,18 @@ pub async fn jwt_middleware(
         .collect::<Vec<_>>()
         .join(",");
 
-    let name = token_data.claims.name
+    let name = token_data
+        .claims
+        .name
         .clone()
         .or(token_data.claims.preferred_username.clone())
         .unwrap_or_else(|| "unknown".to_string());
 
-    let email = token_data.claims.email
+    let email = token_data
+        .claims
+        .email
         .clone()
         .unwrap_or_else(|| "unknown@altair.local".to_string());
-
 
     // =========================
     // Resolve internal user_id
@@ -232,15 +214,9 @@ pub async fn jwt_middleware(
             .ok_or_else(|| ApiError::unauthorized("Missing Authorization header"))?;
 
         //let resolved_user_id =
-            //resolve_user_id(users_ms_url, auth_header).await?;
-        let resolved_user_id = resolve_user_id(
-            users_ms_url,
-            &keycloak_id,
-            &email,
-            &name,
-            &roles_csv,
-        ).await?;
-
+        //resolve_user_id(users_ms_url, auth_header).await?;
+        let resolved_user_id =
+            resolve_user_id(users_ms_url, &keycloak_id, &email, &name, &roles_csv).await?;
 
         state
             .user_cache
@@ -255,7 +231,6 @@ pub async fn jwt_middleware(
         HeaderValue::from_str(&user_id.to_string())
             .map_err(|_| ApiError::unauthorized("Invalid user id"))?,
     );
-
 
     /*let roles = extract_roles(&token_data.claims);
     req.extensions_mut().insert(roles.clone());
@@ -285,14 +260,12 @@ pub async fn jwt_middleware(
 
     req.headers_mut().insert(
         HeaderName::from_static(HDR_NAME),
-        HeaderValue::from_str(&name)
-            .map_err(|_| ApiError::unauthorized("Invalid name"))?,
+        HeaderValue::from_str(&name).map_err(|_| ApiError::unauthorized("Invalid name"))?,
     );
 
     req.headers_mut().insert(
         HeaderName::from_static(HDR_EMAIL),
-        HeaderValue::from_str(&email)
-            .map_err(|_| ApiError::unauthorized("Invalid email"))?,
+        HeaderValue::from_str(&email).map_err(|_| ApiError::unauthorized("Invalid email"))?,
     );
 
     let roles_csv = roles
@@ -303,8 +276,7 @@ pub async fn jwt_middleware(
 
     req.headers_mut().insert(
         HeaderName::from_static(HDR_ROLES),
-        HeaderValue::from_str(&roles_csv)
-            .map_err(|_| ApiError::unauthorized("Invalid roles"))?,
+        HeaderValue::from_str(&roles_csv).map_err(|_| ApiError::unauthorized("Invalid roles"))?,
     );
 
     Ok(next.run(req).await)

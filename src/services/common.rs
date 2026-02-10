@@ -1,6 +1,6 @@
+use crate::error::ApiError;
 use reqwest::Client;
 use serde_json::Value;
-use crate::error::ApiError;
 
 #[derive(Clone)]
 pub struct HttpClient {
@@ -9,13 +9,18 @@ pub struct HttpClient {
 
 impl HttpClient {
     pub fn new() -> Self {
-        Self { client: Client::new() }
+        Self {
+            client: Client::new(),
+        }
     }
 
     pub async fn get_json(&self, url: &str) -> Result<Value, ApiError> {
         let resp = self.client.get(url).send().await.map_err(|e| {
-            if e.is_timeout() { ApiError::upstream_timeout("upstream") }
-            else { ApiError::upstream_unavailable("upstream") }
+            if e.is_timeout() {
+                ApiError::upstream_timeout("upstream")
+            } else {
+                ApiError::upstream_unavailable("upstream")
+            }
         })?;
         Self::handle_response(resp).await
     }
@@ -32,8 +37,11 @@ impl HttpClient {
         }
 
         let resp = req.send().await.map_err(|e| {
-            if e.is_timeout() { ApiError::upstream_timeout("upstream") }
-            else { ApiError::upstream_unavailable("upstream") }
+            if e.is_timeout() {
+                ApiError::upstream_timeout("upstream")
+            } else {
+                ApiError::upstream_unavailable("upstream")
+            }
         })?;
 
         Self::handle_response(resp).await
@@ -44,62 +52,47 @@ impl HttpClient {
             .unwrap_or(axum::http::StatusCode::BAD_GATEWAY);
 
         if status.is_success() {
-            resp.json::<Value>().await.map_err(|_| ApiError::upstream_invalid_response("upstream"))
+            resp.json::<Value>()
+                .await
+                .map_err(|_| ApiError::upstream_invalid_response("upstream"))
         } else {
             Err(ApiError::from_upstream_status(status))
         }
     }
 
-
     pub async fn post_json(&self, url: &str, body: &Value) -> Result<Value, ApiError> {
-        let resp = self.client
-            .post(url)
-            .json(body)
-            .send()
-            .await
-            .map_err(|e| {
-                if e.is_timeout() {
-                    ApiError::upstream_timeout("upstream")
-                } else {
-                    ApiError::upstream_unavailable("upstream")
-                }
-            })?;
+        let resp = self.client.post(url).json(body).send().await.map_err(|e| {
+            if e.is_timeout() {
+                ApiError::upstream_timeout("upstream")
+            } else {
+                ApiError::upstream_unavailable("upstream")
+            }
+        })?;
 
         Self::handle_response(resp).await
     }
 
-
     pub async fn put_json(&self, url: &str, body: &Value) -> Result<Value, ApiError> {
-        let resp = self.client
-            .put(url)
-            .json(body)
-            .send()
-            .await
-            .map_err(|e| {
-                if e.is_timeout() {
-                    ApiError::upstream_timeout("upstream")
-                } else {
-                    ApiError::upstream_unavailable("upstream")
-                }
-            })?;
+        let resp = self.client.put(url).json(body).send().await.map_err(|e| {
+            if e.is_timeout() {
+                ApiError::upstream_timeout("upstream")
+            } else {
+                ApiError::upstream_unavailable("upstream")
+            }
+        })?;
 
         Self::handle_response(resp).await
     }
 
     pub async fn delete_json(&self, url: &str) -> Result<Value, ApiError> {
-        let resp = self.client
-            .delete(url)
-            .send()
-            .await
-            .map_err(|e| {
-                if e.is_timeout() {
-                    ApiError::upstream_timeout("upstream")
-                } else {
-                    ApiError::upstream_unavailable("upstream")
-                }
-            })?;
+        let resp = self.client.delete(url).send().await.map_err(|e| {
+            if e.is_timeout() {
+                ApiError::upstream_timeout("upstream")
+            } else {
+                ApiError::upstream_unavailable("upstream")
+            }
+        })?;
 
         Self::handle_response(resp).await
     }
-
 }

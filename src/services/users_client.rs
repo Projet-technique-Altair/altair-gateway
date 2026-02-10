@@ -96,8 +96,8 @@ pub async fn resolve_user_id(
 }*/
 
 use reqwest::Client;
-use uuid::Uuid;
 use serde_json::Value;
+use uuid::Uuid;
 
 use crate::error::ApiError;
 
@@ -108,7 +108,6 @@ pub async fn resolve_user_id(
     name: &str,
     roles: &str,
 ) -> Result<Uuid, ApiError> {
-
     let res = Client::new()
         .get(format!("{users_ms_url}/me"))
         .header("x-altair-keycloak-id", keycloak_id)
@@ -134,6 +133,5 @@ pub async fn resolve_user_id(
         .and_then(|id| id.as_str())
         .ok_or_else(|| ApiError::upstream_invalid_response("users"))?;
 
-    Uuid::parse_str(user_id)
-        .map_err(|_| ApiError::upstream_invalid_response("users"))
+    Uuid::parse_str(user_id).map_err(|_| ApiError::upstream_invalid_response("users"))
 }

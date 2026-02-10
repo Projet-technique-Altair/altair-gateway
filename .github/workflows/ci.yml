@@ -1,0 +1,13 @@
+name: Gateway CI
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+
+jobs:
+  ci:
+    uses: Projet-technique-Altair/altair-ci/.github/workflows/gateway.yml@v1
+    with:
+      rust_toolchain: stable

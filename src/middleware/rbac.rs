@@ -1,21 +1,8 @@
-use axum::{
-    body::Body,
-    http::Request,
-    middleware::Next,
-    response::Response,
-};
+use axum::{body::Body, http::Request, middleware::Next, response::Response};
 
-use crate::{
-    error::ApiError,
-    security::roles::Role,
-};
+use crate::{error::ApiError, security::roles::Role};
 
-pub async fn rbac_middleware(
-    req: Request<Body>,
-    next: Next,
-) -> Result<Response, ApiError> {
-    
-
+pub async fn rbac_middleware(req: Request<Body>, next: Next) -> Result<Response, ApiError> {
     // =========================
     // Public endpoints
     // =========================
@@ -29,11 +16,7 @@ pub async fn rbac_middleware(
     // =========================
     // /labs/anything/...  -> labs
     // /sessions/foo/bar   -> sessions
-    let service = path
-        .trim_start_matches('/')
-        .split('/')
-        .next()
-        .unwrap_or("");
+    let service = path.trim_start_matches('/').split('/').next().unwrap_or("");
 
     // =========================
     // Roles injected by JWT
@@ -44,7 +27,6 @@ pub async fn rbac_middleware(
         .cloned()
         .unwrap_or_default();
 
-    
     println!("RBAC path = {}", req.uri().path());
     println!("RBAC roles = {:?}", roles);
 
@@ -60,7 +42,6 @@ pub async fn rbac_middleware(
 
     let method = req.method().as_str();
 
-
     // =========================
     // Self identity endpoint
     // =========================
@@ -68,12 +49,10 @@ pub async fn rbac_middleware(
         return Ok(next.run(req).await);
     }*/
 
-
     // =========================
     // RBAC RULES (SERVICE-LEVEL)
     // =========================
     let authorized = match (method, service) {
-
         // =====================
         // READ ACCESS
         // =====================
@@ -120,4 +99,3 @@ pub async fn rbac_middleware(
 
     Ok(next.run(req).await)
 }
-

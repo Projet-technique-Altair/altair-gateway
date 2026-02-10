@@ -1,10 +1,6 @@
-use axum::{
-    response::IntoResponse,
-    http::StatusCode,
-    Json,
-};
-use serde::Serialize;
+use axum::{http::StatusCode, response::IntoResponse, Json};
 use chrono::Utc;
+use serde::Serialize;
 use uuid::Uuid;
 
 #[derive(Serialize)]
@@ -35,13 +31,8 @@ pub struct ApiError {
     pub details: Option<serde_json::Value>,
 }
 
-
 impl ApiError {
-    fn new(
-        status: StatusCode,
-        code: &str,
-        message: String,
-    ) -> Self {
+    fn new(status: StatusCode, code: &str, message: String) -> Self {
         Self {
             status,
             code: code.to_string(),
@@ -83,19 +74,11 @@ impl ApiError {
             _ => "UPSTREAM_ERROR",
         };
 
-        Self::new(
-            status,
-            code,
-            format!("Upstream service returned {status}"),
-        )
+        Self::new(status, code, format!("Upstream service returned {status}"))
     }
 
     pub fn forbidden(message: &str) -> Self {
-        Self::new(
-            StatusCode::FORBIDDEN,
-            "FORBIDDEN",
-            message.to_string(),
-        )
+        Self::new(StatusCode::FORBIDDEN, "FORBIDDEN", message.to_string())
     }
 
     pub fn unauthorized(message: &str) -> Self {
@@ -105,7 +88,6 @@ impl ApiError {
             message.to_string(),
         )
     }
-
 }
 
 impl IntoResponse for ApiError {

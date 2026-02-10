@@ -1,14 +1,14 @@
+use axum::http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use tokio::net::TcpListener;
-use tower_http::cors::{CorsLayer, Any};
-use axum::http::header::{AUTHORIZATION, CONTENT_TYPE, ACCEPT};
+use tower_http::cors::{Any, CorsLayer};
 
-mod routes;
-mod state;
-mod services;
 mod error;
-mod utils;
 mod middleware;
+mod routes;
 mod security;
+mod services;
+mod state;
+mod utils;
 
 #[tokio::main]
 async fn main() {
@@ -35,5 +35,3 @@ async fn main() {
         .await
         .expect("Failed to start Gateway");
 }
-
-
