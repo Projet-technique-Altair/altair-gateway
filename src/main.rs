@@ -29,7 +29,7 @@ async fn main() {
         .await
         .expect("Cannot bind port 3000");
 
-    println!("Gateway running on http://localhost:3000");
+    println!("Gateway running On http://localhost:3000");
 
     axum::serve(listener, app)
         .await
