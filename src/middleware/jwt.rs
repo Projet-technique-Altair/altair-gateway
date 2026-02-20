@@ -41,9 +41,12 @@ struct ResourceAccess {
 #[derive(Debug, Deserialize)]
 struct Claims {
     sub: String,
-    exp: usize,
-    iss: String,
-    aud: serde_json::Value,
+    #[serde(rename = "exp")]
+    _exp: usize,
+    #[serde(rename = "iss")]
+    _iss: String,
+    #[serde(rename = "aud")]
+    _aud: serde_json::Value,
 
     // 👇 AJOUT ICI
     realm_access: Option<RealmAccess>,
@@ -145,7 +148,7 @@ pub async fn jwt_middleware(
 
     let mut validation = Validation::new(Algorithm::RS256);
     validation.validate_exp = true;
-    validation.set_issuer(&[issuer.clone()]);
+    validation.set_issuer(std::slice::from_ref(&issuer));
     validation.validate_aud = false; // MVP
 
     //let token_data = decode::<Claims>(token, &decoding_key, &validation)
@@ -206,13 +209,6 @@ pub async fn jwt_middleware(
             .services
             .get("users")
             .ok_or_else(|| ApiError::upstream_unavailable("users"))?;
-
-        let auth_header = req
-            .headers()
-            .get(axum::http::header::AUTHORIZATION)
-            .and_then(|v| v.to_str().ok())
-            .ok_or_else(|| ApiError::unauthorized("Missing Authorization header"))?;
-
         //let resolved_user_id =
         //resolve_user_id(users_ms_url, auth_header).await?;
         let resolved_user_id =

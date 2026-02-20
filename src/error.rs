@@ -49,6 +49,7 @@ impl ApiError {
         )
     }
 
+    #[allow(dead_code)]
     pub fn upstream_timeout(service: &str) -> Self {
         Self::new(
             StatusCode::GATEWAY_TIMEOUT,
@@ -65,6 +66,7 @@ impl ApiError {
         )
     }
 
+    #[allow(dead_code)]
     pub fn from_upstream_status(status: StatusCode) -> Self {
         let code = match status {
             StatusCode::NOT_FOUND => "RESOURCE_NOT_FOUND",

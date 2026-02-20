@@ -128,6 +128,11 @@ GROUPS_MS_URL=http://localhost:3006
 # Server Configuration
 PORT=3000                                 # Server port (default: 3000)
 RUST_LOG=info                             # Log level filter
+
+# CORS Configuration (CSV)
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
+ALLOWED_METHODS=GET,POST,PUT,PATCH,DELETE,OPTIONS
+ALLOWED_HEADERS=authorization,content-type
 ```
 
 #### Production (Cloud Run)
@@ -147,7 +152,18 @@ GROUPS_MS_URL=https://groups-ms-xxx.run.app
 # Server Configuration
 PORT=3000
 RUST_LOG=info
+
+# CORS Configuration (explicit frontend domains)
+ALLOWED_ORIGINS=https://app.altair.io
+ALLOWED_METHODS=GET,POST,PUT,PATCH,DELETE,OPTIONS
+ALLOWED_HEADERS=authorization,content-type
 ```
+
+CORS env format rules:
+- `ALLOWED_ORIGINS`: comma-separated origins
+- `ALLOWED_METHODS`: comma-separated HTTP methods
+- `ALLOWED_HEADERS`: comma-separated request header names (lowercase preferred)
+- Missing/invalid env values fallback to safe defaults in `src/main.rs`.
 
 ---
 
@@ -576,7 +592,7 @@ jwt decode $TOKEN | jq .iss
 - [ ]  **Implement JWKS caching** (with TTL or cache-control headers)
 - [ ]  **Fix service naming** (align `starpath` vs `starpaths`)
 - [ ]  **Fix health endpoint bypass** (consistent JWT + RBAC)
-- [ ]  **Restrict CORS** (specific frontend origins only)
+- [x]  **Restrict CORS** (env-driven strict origins, methods, headers)
 
 ### Medium Priority (Production Hardening)
 
