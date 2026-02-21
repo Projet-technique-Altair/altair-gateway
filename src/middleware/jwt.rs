@@ -88,9 +88,9 @@ pub async fn jwt_middleware(
     mut req: Request<Body>,
     next: Next,
 ) -> Result<Response, ApiError> {
-    // Public health endpoints (no auth)
+    // Public endpoint (no auth)
     let path = req.uri().path();
-    if path == "/health" || path.ends_with("/health") {
+    if path == "/health" {
         return Ok(next.run(req).await);
     }
 

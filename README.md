@@ -521,7 +521,6 @@ The Cloud Run service account requires:
 ### 🔴 Critical Issues
 
 - **In-memory JWKS cache** – cache is per-instance (not shared across replicas)
-- **Health endpoint bypass mismatch** – JWT bypasses `/*/health`, RBAC only bypasses `/health`
 
 ### 🟡 Operational Limitations
 
@@ -587,9 +586,9 @@ jwt decode $TOKEN | jq .iss
 
 **Symptom:** `GET /users/health` returns `403 Forbidden`.
 
-**Cause:** RBAC middleware only bypasses exact `/health`, not `/*/health`.
+**Cause:** only gateway root health (`/health`) is public; service-prefixed health routes (`/*/health`) are protected by JWT + RBAC.
 
-**Workaround:** Call health checks directly on microservices (not via gateway).
+**Behavior:** this is expected and intentional.
 
 ### Slow Response Times
 
@@ -607,7 +606,7 @@ jwt decode $TOKEN | jq .iss
 
 - [x]  **Implement JWKS caching** (TTL + cache-control + forced refresh on unknown kid)
 - [x]  **Fix service naming** (aligned on `starpaths` across registry and RBAC)
-- [ ]  **Fix health endpoint bypass** (consistent JWT + RBAC)
+- [x]  **Fix health endpoint bypass** (only `/health` public; `/*/health` protected)
 - [x]  **Restrict CORS** (env-driven strict origins, methods, headers)
 
 ### Medium Priority (Production Hardening)
@@ -636,12 +635,10 @@ This gateway is **functional for MVP deployment** with core authentication, auth
 
 **Known limitations to address for production:**
 
-1. Service naming consistency fix
-2. Health endpoint bypass consistency
-3. Streaming proxy + full response header forwarding
-4. Streaming proxy implementation
-5. Comprehensive header forwarding
-6. Circuit breaker patterns
+1. Streaming proxy implementation
+2. Circuit breaker patterns
+3. Request retry logic
+4. Audience validation hardening
 
 **Maintainers:** Altaïr Platform Team
 
