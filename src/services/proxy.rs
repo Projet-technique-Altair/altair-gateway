@@ -74,11 +74,12 @@ pub async fn proxy(
     let status =
         StatusCode::from_u16(response.status().as_u16()).map_err(|_| StatusCode::BAD_GATEWAY)?;
 
-    let content_type = response
+    let response_headers: Vec<(String, Vec<u8>)> = response
         .headers()
-        .get(reqwest::header::CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok())
-        .map(|s| s.to_string());
+        .iter()
+        .filter(|(name, _)| is_allowed_response_header(name))
+        .map(|(name, value)| (name.as_str().to_string(), value.as_bytes().to_vec()))
+        .collect();
 
     let body = response
         .bytes()
@@ -95,12 +96,28 @@ pub async fn proxy(
     let mut axum_response = Response::new(Body::from(body));
     *axum_response.status_mut() = status;
 
-    // Forward ONLY content-type (safe)
-    if let Some(ct) = content_type {
-        axum_response
-            .headers_mut()
-            .insert("content-type", ct.parse().unwrap());
+    // Forward allowlisted response headers, preserving multi-values (e.g. Set-Cookie).
+    for (name, value) in response_headers {
+        if let (Ok(header_name), Ok(header_value)) = (
+            axum::http::HeaderName::from_bytes(name.as_bytes()),
+            axum::http::HeaderValue::from_bytes(&value),
+        ) {
+            axum_response
+                .headers_mut()
+                .append(header_name, header_value);
+        }
     }
 
     Ok(axum_response)
+}
+
+fn is_allowed_response_header(name: &reqwest::header::HeaderName) -> bool {
+    *name == reqwest::header::CONTENT_TYPE
+        || *name == reqwest::header::SET_COOKIE
+        || *name == reqwest::header::LOCATION
+        || *name == reqwest::header::CACHE_CONTROL
+        || *name == reqwest::header::ETAG
+        || *name == reqwest::header::LAST_MODIFIED
+        || *name == reqwest::header::EXPIRES
+        || *name == reqwest::header::VARY
 }

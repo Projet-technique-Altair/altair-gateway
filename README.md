@@ -425,13 +425,14 @@ The gateway proxies validated requests to backend microservices.
 
 - HTTP status code
 - Response body
-- `Content-Type` header **only**
+- `Content-Type`
+- `Set-Cookie`
+- `Location`
+- Cache headers: `Cache-Control`, `ETag`, `Last-Modified`, `Expires`, `Vary`
 
 **Not forwarded:**
 
-- `Set-Cookie` (⚠️ breaks session-based flows)
-- `Location` (⚠️ breaks redirects)
-- Cache headers (⚠️ breaks client-side caching)
+- All non-allowlisted headers (intentional strict policy)
 
 ---
 
@@ -525,7 +526,7 @@ The Cloud Run service account requires:
 ### 🟡 Operational Limitations
 
 - **Non-streaming proxy** – Request/response bodies fully buffered in memory
-- **Limited header forwarding** – Only `Content-Type` forwarded from upstream (breaks `Set-Cookie`, `Location`)
+- **Limited header forwarding** – strict allowlist only (not full header passthrough)
 - **Per-instance cache** – User ID cache not shared across replicas
 - **No cache expiration** – Entries live forever (memory leak risk on long-running instances)
 
@@ -612,7 +613,7 @@ jwt decode $TOKEN | jq .iss
 ### Medium Priority (Production Hardening)
 
 - [ ]  **Add streaming proxy** (avoid buffering large bodies)
-- [ ]  **Forward all response headers** (`Set-Cookie`, `Location`, cache headers)
+- [x]  **Forward critical response headers** (`Set-Cookie`, `Location`, cache headers)
 - [ ]  **Implement circuit breakers** (handle upstream failures gracefully)
 - [ ]  **Add request retry logic** (with exponential backoff)
 - [ ]  **Enable audience validation** (validate JWT `aud` claim)
