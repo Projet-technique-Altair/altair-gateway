@@ -34,7 +34,7 @@ impl AppState {
         );
 
         services.insert(
-            "starpath".into(),
+            "starpaths".into(),
             std::env::var("STARPATH_MS_URL")
                 .unwrap_or_else(|_| "http://localhost:3005".to_string()),
         );

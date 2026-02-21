@@ -404,7 +404,7 @@ The gateway proxies validated requests to backend microservices.
 | `users` | `USERS_MS_URL` | http://localhost:3001 |
 | `labs` | `LABS_MS_URL` | http://localhost:3002 |
 | `sessions` | `SESSIONS_MS_URL` | http://localhost:3003 |
-| `starpath` | `STARPATH_MS_URL` | http://localhost:3005 |
+| `starpaths` | `STARPATH_MS_URL` | http://localhost:3005 |
 | `groups` | `GROUPS_MS_URL` | http://localhost:3006 |
 
 ### Request Forwarding
@@ -520,7 +520,6 @@ The Cloud Run service account requires:
 ### 🔴 Critical Issues
 
 - **In-memory JWKS cache** – cache is per-instance (not shared across replicas)
-- **Service naming inconsistency** – `"starpath"` vs `"starpaths"` mismatch between registry and RBAC
 - **Health endpoint bypass mismatch** – JWT bypasses `/*/health`, RBAC only bypasses `/health`
 
 ### 🟡 Operational Limitations
@@ -591,14 +590,6 @@ jwt decode $TOKEN | jq .iss
 
 **Workaround:** Call health checks directly on microservices (not via gateway).
 
-### Starpath Service Inaccessible
-
-**Symptom:** Requests to `/starpath/*` or `/starpaths/*` return errors.
-
-**Cause:** Naming inconsistency between service registry (`"starpath"`) and RBAC (`"starpaths"`).
-
-**Workaround:** Use the variant that matches your current configuration (check `.env` and [`rbac.rs`](http://rbac.rs)).
-
 ### Slow Response Times
 
 **Symptom:** High latency on all requests.
@@ -614,7 +605,7 @@ jwt decode $TOKEN | jq .iss
 ### High Priority (MVP → Production)
 
 - [x]  **Implement JWKS caching** (TTL + cache-control + forced refresh on unknown kid)
-- [ ]  **Fix service naming** (align `starpath` vs `starpaths`)
+- [x]  **Fix service naming** (aligned on `starpaths` across registry and RBAC)
 - [ ]  **Fix health endpoint bypass** (consistent JWT + RBAC)
 - [x]  **Restrict CORS** (env-driven strict origins, methods, headers)
 
