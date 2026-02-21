@@ -9,6 +9,7 @@ use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation};
 use serde::Deserialize;
 
 use crate::error::ApiError;
+use crate::security::jwks_cache::Jwk;
 use crate::security::roles::Role;
 use crate::services::users_client::resolve_user_id;
 use crate::state::AppState;
@@ -16,19 +17,6 @@ use crate::state::AppState;
 #[derive(Debug, Deserialize)]
 struct RealmAccess {
     roles: Vec<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct Jwks {
-    keys: Vec<Jwk>,
-}
-
-#[derive(Debug, Deserialize)]
-struct Jwk {
-    kid: String,
-    kty: String,
-    n: String,
-    e: String,
 }
 
 use std::collections::HashMap;
@@ -130,18 +118,7 @@ pub async fn jwt_middleware(
     let jwks_url = std::env::var("KEYCLOAK_JWKS_URL")
         .unwrap_or_else(|_| format!("{issuer}/protocol/openid-connect/certs"));
 
-    let jwks = reqwest::get(&jwks_url)
-        .await
-        .map_err(|_| ApiError::upstream_unavailable("keycloak"))?
-        .json::<Jwks>()
-        .await
-        .map_err(|_| ApiError::upstream_invalid_response("keycloak"))?;
-
-    let jwk = jwks
-        .keys
-        .iter()
-        .find(|k| k.kid == kid && k.kty == "RSA")
-        .ok_or_else(|| ApiError::unauthorized("Unknown signing key (kid)"))?;
+    let jwk: Jwk = state.jwks_cache.get_jwk_for_kid(&jwks_url, &kid).await?;
 
     let decoding_key = DecodingKey::from_rsa_components(&jwk.n, &jwk.e)
         .map_err(|_| ApiError::unauthorized("Invalid JWKS key"))?;

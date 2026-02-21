@@ -1,5 +1,7 @@
+use crate::security::jwks_cache::{JwksCache, JwksCacheConfig};
 use dashmap::DashMap;
 use std::collections::HashMap;
+use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -8,6 +10,7 @@ pub struct AppState {
 
     // NOUVEAU
     pub user_cache: DashMap<String, Uuid>,
+    pub jwks_cache: Arc<JwksCache>,
 }
 
 impl AppState {
@@ -44,6 +47,7 @@ impl AppState {
         Self {
             services,
             user_cache: DashMap::new(), //
+            jwks_cache: Arc::new(JwksCache::new(JwksCacheConfig::from_env())),
         }
     }
 }

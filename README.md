@@ -35,7 +35,7 @@ This service acts as the **security boundary**: it validates Keycloak JWT tokens
 - ✅ **Only service that validates JWTs** – downstream services trust injected headers
 - ✅ **Anti-spoofing protection** – strips incoming `x-altair-*` headers before injection
 - ⚠️ **In-memory cache** – user ID cache is per-instance (not shared across replicas)
-- ⚠️ **No JWKS caching** – fetches keys on every request (performance concern)
+- ✅ **JWKS cache enabled** – TTL + `cache-control` support + forced refresh on unknown `kid`
 
 **Deployment requirement:** Must be the ONLY publicly accessible service. All microservices should be internal-only.
 
@@ -117,6 +117,11 @@ This service acts as the **security boundary**: it validates Keycloak JWT tokens
 ```bash
 # Keycloak Configuration (required)
 KEYCLOAK_ISSUER=http://localhost:8080/realms/altair
+KEYCLOAK_JWKS_URL=http://localhost:8080/realms/altair/protocol/openid-connect/certs
+JWKS_TTL_SECONDS=300
+JWKS_STALE_IF_ERROR_SECONDS=120
+JWKS_CACHE_MIN_TTL_SECONDS=30
+JWKS_CACHE_MAX_TTL_SECONDS=3600
 
 # Microservice URLs (defaults available)
 USERS_MS_URL=http://localhost:3001
@@ -141,6 +146,10 @@ ALLOWED_HEADERS=authorization,content-type
 # Keycloak Configuration (required)
 KEYCLOAK_ISSUER=https://auth.altair.io/realms/altair
 KEYCLOAK_JWKS_URL=https://auth.altair.io/realms/altair/protocol/openid-connect/certs
+JWKS_TTL_SECONDS=300
+JWKS_STALE_IF_ERROR_SECONDS=120
+JWKS_CACHE_MIN_TTL_SECONDS=30
+JWKS_CACHE_MAX_TTL_SECONDS=3600
 
 # Microservice URLs (internal Cloud Run services)
 USERS_MS_URL=https://users-ms-xxx.run.app
@@ -164,6 +173,20 @@ CORS env format rules:
 - `ALLOWED_METHODS`: comma-separated HTTP methods
 - `ALLOWED_HEADERS`: comma-separated request header names (lowercase preferred)
 - Missing/invalid env values fallback to safe defaults in `src/main.rs`.
+
+JWKS cache env format rules:
+- `JWKS_TTL_SECONDS`: default TTL when `cache-control` does not provide `max-age`.
+- `JWKS_STALE_IF_ERROR_SECONDS`: grace window to use stale JWKS if refresh fails.
+- `JWKS_CACHE_MIN_TTL_SECONDS`: minimum accepted TTL.
+- `JWKS_CACHE_MAX_TTL_SECONDS`: maximum accepted TTL.
+
+JWKS runtime logs (terminal):
+- `[JWKS] cache hit` → valid JWKS found in memory, no network call to Keycloak.
+- `[JWKS] cache miss/expired` → no valid JWKS in cache, refresh is required.
+- `[JWKS] refresh success (ttl=Ns)` → refresh succeeded, cache renewed for `N` seconds.
+- `[JWKS] unknown kid, forcing refresh: <kid>` → token key id not found in cache, immediate refresh forced.
+- `[JWKS] refresh failed, using stale cache` → refresh failed but stale window is still active.
+- `[JWKS] refresh failed, no stale cache available` → refresh failed and no fallback cache remains; request will fail.
 
 ---
 
@@ -272,9 +295,10 @@ GET /labs/123           → {LABS_MS_URL}/123
 1. **Extract Token**
     - Read `Authorization: Bearer <token>` header
     - Decode JWT header to extract `kid` (key ID)
-2. **Fetch JWKS**
-    - Retrieve public keys from `KEYCLOAK_JWKS_URL`
-    - Find RSA key matching `kid`
+2. **Resolve JWKS (cached)**
+    - Use in-memory JWKS cache if valid (TTL / `cache-control`)
+    - On cache miss/expiry, refresh from `KEYCLOAK_JWKS_URL`
+    - If `kid` is unknown, force one immediate refresh, then re-check key
 3. **Verify Signature**
     - Algorithm: RS256
     - Issuer: Must match `KEYCLOAK_ISSUER`
@@ -495,7 +519,7 @@ The Cloud Run service account requires:
 
 ### 🔴 Critical Issues
 
-- **No JWKS caching** – Fetches Keycloak public keys on EVERY request
+- **In-memory JWKS cache** – cache is per-instance (not shared across replicas)
 - **Service naming inconsistency** – `"starpath"` vs `"starpaths"` mismatch between registry and RBAC
 - **Health endpoint bypass mismatch** – JWT bypasses `/*/health`, RBAC only bypasses `/health`
 
@@ -579,9 +603,9 @@ jwt decode $TOKEN | jq .iss
 
 **Symptom:** High latency on all requests.
 
-**Cause:** JWKS fetched on every request.
+**Cause:** cache miss/expiry, upstream latency, or downstream service latency.
 
-**Solution:** Implement JWKS caching (see TODO).
+**Solution:** verify `JWKS_*` settings and upstream health (`KEYCLOAK_JWKS_URL`).
 
 ---
 
@@ -589,7 +613,7 @@ jwt decode $TOKEN | jq .iss
 
 ### High Priority (MVP → Production)
 
-- [ ]  **Implement JWKS caching** (with TTL or cache-control headers)
+- [x]  **Implement JWKS caching** (TTL + cache-control + forced refresh on unknown kid)
 - [ ]  **Fix service naming** (align `starpath` vs `starpaths`)
 - [ ]  **Fix health endpoint bypass** (consistent JWT + RBAC)
 - [x]  **Restrict CORS** (env-driven strict origins, methods, headers)
@@ -620,9 +644,9 @@ This gateway is **functional for MVP deployment** with core authentication, auth
 
 **Known limitations to address for production:**
 
-1. JWKS caching implementation
-2. Service naming consistency fix
-3. CORS restriction to specific origins
+1. Service naming consistency fix
+2. Health endpoint bypass consistency
+3. Streaming proxy + full response header forwarding
 4. Streaming proxy implementation
 5. Comprehensive header forwarding
 6. Circuit breaker patterns
