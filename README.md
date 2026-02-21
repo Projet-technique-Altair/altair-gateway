@@ -122,6 +122,8 @@ JWKS_TTL_SECONDS=300
 JWKS_STALE_IF_ERROR_SECONDS=120
 JWKS_CACHE_MIN_TTL_SECONDS=30
 JWKS_CACHE_MAX_TTL_SECONDS=3600
+USER_ID_CACHE_TTL_SECONDS=300
+USER_ID_CACHE_CLEANUP_INTERVAL_SECONDS=60
 
 # Microservice URLs (defaults available)
 USERS_MS_URL=http://localhost:3001
@@ -150,6 +152,8 @@ JWKS_TTL_SECONDS=300
 JWKS_STALE_IF_ERROR_SECONDS=120
 JWKS_CACHE_MIN_TTL_SECONDS=30
 JWKS_CACHE_MAX_TTL_SECONDS=3600
+USER_ID_CACHE_TTL_SECONDS=300
+USER_ID_CACHE_CLEANUP_INTERVAL_SECONDS=60
 
 # Microservice URLs (internal Cloud Run services)
 USERS_MS_URL=https://users-ms-xxx.run.app
@@ -180,6 +184,10 @@ JWKS cache env format rules:
 - `JWKS_CACHE_MIN_TTL_SECONDS`: minimum accepted TTL.
 - `JWKS_CACHE_MAX_TTL_SECONDS`: maximum accepted TTL.
 
+User ID cache env format rules:
+- `USER_ID_CACHE_TTL_SECONDS`: how long `keycloak_id -> user_id` entries stay valid in memory.
+- `USER_ID_CACHE_CLEANUP_INTERVAL_SECONDS`: periodic cleanup interval for removing expired entries.
+
 JWKS runtime logs (terminal):
 - `[JWKS] cache hit` → valid JWKS found in memory, no network call to Keycloak.
 - `[JWKS] cache miss/expired` → no valid JWKS in cache, refresh is required.
@@ -187,6 +195,12 @@ JWKS runtime logs (terminal):
 - `[JWKS] unknown kid, forcing refresh: <kid>` → token key id not found in cache, immediate refresh forced.
 - `[JWKS] refresh failed, using stale cache` → refresh failed but stale window is still active.
 - `[JWKS] refresh failed, no stale cache available` → refresh failed and no fallback cache remains; request will fail.
+
+User ID cache runtime logs (terminal):
+- `[USER_ID_CACHE] cache hit` → valid mapping served from memory.
+- `[USER_ID_CACHE] cache miss` → no mapping found, resolve from users-ms.
+- `[USER_ID_CACHE] cache expired` → stale mapping removed, resolve from users-ms.
+- `[USER_ID_CACHE] cleanup removed N expired entries` → periodic cleanup reclaimed memory.
 
 ---
 
@@ -527,7 +541,6 @@ The Cloud Run service account requires:
 - **Non-streaming proxy** – Request/response bodies fully buffered in memory
 - **Limited header forwarding** – strict allowlist only (not full header passthrough)
 - **Per-instance cache** – User ID cache not shared across replicas
-- **No cache expiration** – Entries live forever (memory leak risk on long-running instances)
 
 ### 🟡 Security Concerns
 

@@ -7,12 +7,14 @@ use axum::{
 };
 use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation};
 use serde::Deserialize;
+use std::time::Instant;
 
 use crate::error::ApiError;
 use crate::security::jwks_cache::Jwk;
 use crate::security::roles::Role;
 use crate::services::users_client::resolve_user_id;
 use crate::state::AppState;
+use crate::state::CachedUserId;
 
 #[derive(Debug, Deserialize)]
 struct RealmAccess {
@@ -177,23 +179,43 @@ pub async fn jwt_middleware(
     // Nettoyage anti-spoof
     req.headers_mut().remove(HDR_USER_ID);
 
+    let now = Instant::now();
     let user_id = if let Some(entry) = state.user_cache.get(&keycloak_id) {
-        // 🟢 cache hit
-        *entry
+        if !entry.is_expired(now) {
+            println!("[USER_ID_CACHE] cache hit");
+            entry.user_id
+        } else {
+            println!("[USER_ID_CACHE] cache expired");
+            drop(entry);
+            state.user_cache.remove(&keycloak_id);
+
+            let users_ms_url = state
+                .services
+                .get("users")
+                .ok_or_else(|| ApiError::upstream_unavailable("users"))?;
+            let resolved_user_id =
+                resolve_user_id(users_ms_url, &keycloak_id, &email, &name, &roles_csv).await?;
+
+            state.user_cache.insert(
+                keycloak_id.clone(),
+                CachedUserId::new(resolved_user_id, state.user_cache_ttl),
+            );
+
+            resolved_user_id
+        }
     } else {
-        // 🔵 cache miss → call users-ms
+        println!("[USER_ID_CACHE] cache miss");
         let users_ms_url = state
             .services
             .get("users")
             .ok_or_else(|| ApiError::upstream_unavailable("users"))?;
-        //let resolved_user_id =
-        //resolve_user_id(users_ms_url, auth_header).await?;
         let resolved_user_id =
             resolve_user_id(users_ms_url, &keycloak_id, &email, &name, &roles_csv).await?;
 
-        state
-            .user_cache
-            .insert(keycloak_id.clone(), resolved_user_id);
+        state.user_cache.insert(
+            keycloak_id.clone(),
+            CachedUserId::new(resolved_user_id, state.user_cache_ttl),
+        );
 
         resolved_user_id
     };

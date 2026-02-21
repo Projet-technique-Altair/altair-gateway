@@ -2,19 +2,42 @@ use crate::security::jwks_cache::{JwksCache, JwksCacheConfig};
 use dashmap::DashMap;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use uuid::Uuid;
+
+#[derive(Clone, Copy)]
+pub struct CachedUserId {
+    pub user_id: Uuid,
+    pub expires_at: Instant,
+}
+
+impl CachedUserId {
+    pub fn new(user_id: Uuid, ttl: Duration) -> Self {
+        Self {
+            user_id,
+            expires_at: Instant::now() + ttl,
+        }
+    }
+
+    pub fn is_expired(&self, now: Instant) -> bool {
+        now >= self.expires_at
+    }
+}
 
 #[derive(Clone)]
 pub struct AppState {
     pub services: HashMap<String, String>,
-
-    // NOUVEAU
-    pub user_cache: DashMap<String, Uuid>,
+    pub user_cache: Arc<DashMap<String, CachedUserId>>,
+    pub user_cache_ttl: Duration,
     pub jwks_cache: Arc<JwksCache>,
 }
 
 impl AppState {
     pub fn new() -> Self {
+        let user_cache_ttl = parse_u64_env("USER_ID_CACHE_TTL_SECONDS", 300);
+        let user_cache_cleanup_interval =
+            parse_u64_env("USER_ID_CACHE_CLEANUP_INTERVAL_SECONDS", 60);
+
         let mut services = HashMap::new();
 
         services.insert(
@@ -44,10 +67,41 @@ impl AppState {
             std::env::var("GROUPS_MS_URL").unwrap_or_else(|_| "http://localhost:3006".to_string()),
         );
 
-        Self {
+        let state = Self {
             services,
-            user_cache: DashMap::new(), //
+            user_cache: Arc::new(DashMap::new()),
+            user_cache_ttl: Duration::from_secs(user_cache_ttl),
             jwks_cache: Arc::new(JwksCache::new(JwksCacheConfig::from_env())),
-        }
+        };
+
+        // Periodic cleanup avoids keeping expired entries forever on long-lived instances.
+        let cache = Arc::clone(&state.user_cache);
+        let cleanup_every = Duration::from_secs(user_cache_cleanup_interval.max(1));
+        tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(cleanup_every);
+            loop {
+                ticker.tick().await;
+                let now = Instant::now();
+                let before = cache.len();
+                cache.retain(|_, entry| !entry.is_expired(now));
+                let removed = before.saturating_sub(cache.len());
+                if removed > 0 {
+                    println!(
+                        "[USER_ID_CACHE] cleanup removed {} expired entries",
+                        removed
+                    );
+                }
+            }
+        });
+
+        state
     }
+}
+
+fn parse_u64_env(key: &str, default: u64) -> u64 {
+    std::env::var(key)
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .filter(|v| *v > 0)
+        .unwrap_or(default)
 }
