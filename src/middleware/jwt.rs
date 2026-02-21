@@ -193,8 +193,16 @@ pub async fn jwt_middleware(
                 .services
                 .get("users")
                 .ok_or_else(|| ApiError::upstream_unavailable("users"))?;
-            let resolved_user_id =
-                resolve_user_id(users_ms_url, &keycloak_id, &email, &name, &roles_csv).await?;
+            let resolved_user_id = resolve_user_id(
+                users_ms_url,
+                &keycloak_id,
+                &email,
+                &name,
+                &roles_csv,
+                state.upstream_retry_max_attempts,
+                state.upstream_retry_base_delay_ms,
+            )
+            .await?;
 
             state.user_cache.insert(
                 keycloak_id.clone(),
@@ -209,8 +217,16 @@ pub async fn jwt_middleware(
             .services
             .get("users")
             .ok_or_else(|| ApiError::upstream_unavailable("users"))?;
-        let resolved_user_id =
-            resolve_user_id(users_ms_url, &keycloak_id, &email, &name, &roles_csv).await?;
+        let resolved_user_id = resolve_user_id(
+            users_ms_url,
+            &keycloak_id,
+            &email,
+            &name,
+            &roles_csv,
+            state.upstream_retry_max_attempts,
+            state.upstream_retry_base_delay_ms,
+        )
+        .await?;
 
         state.user_cache.insert(
             keycloak_id.clone(),

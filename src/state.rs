@@ -29,6 +29,8 @@ pub struct AppState {
     pub services: HashMap<String, String>,
     pub user_cache: Arc<DashMap<String, CachedUserId>>,
     pub user_cache_ttl: Duration,
+    pub upstream_retry_max_attempts: u32,
+    pub upstream_retry_base_delay_ms: u64,
     pub jwks_cache: Arc<JwksCache>,
 }
 
@@ -37,6 +39,8 @@ impl AppState {
         let user_cache_ttl = parse_u64_env("USER_ID_CACHE_TTL_SECONDS", 300);
         let user_cache_cleanup_interval =
             parse_u64_env("USER_ID_CACHE_CLEANUP_INTERVAL_SECONDS", 60);
+        let upstream_retry_max_attempts = parse_u32_env("UPSTREAM_RETRY_MAX_ATTEMPTS", 3);
+        let upstream_retry_base_delay_ms = parse_u64_env("UPSTREAM_RETRY_BASE_DELAY_MS", 100);
 
         let mut services = HashMap::new();
 
@@ -71,6 +75,8 @@ impl AppState {
             services,
             user_cache: Arc::new(DashMap::new()),
             user_cache_ttl: Duration::from_secs(user_cache_ttl),
+            upstream_retry_max_attempts: upstream_retry_max_attempts.max(1),
+            upstream_retry_base_delay_ms: upstream_retry_base_delay_ms.max(1),
             jwks_cache: Arc::new(JwksCache::new(JwksCacheConfig::from_env())),
         };
 
@@ -102,6 +108,14 @@ fn parse_u64_env(key: &str, default: u64) -> u64 {
     std::env::var(key)
         .ok()
         .and_then(|v| v.parse::<u64>().ok())
+        .filter(|v| *v > 0)
+        .unwrap_or(default)
+}
+
+fn parse_u32_env(key: &str, default: u32) -> u32 {
+    std::env::var(key)
+        .ok()
+        .and_then(|v| v.parse::<u32>().ok())
         .filter(|v| *v > 0)
         .unwrap_or(default)
 }

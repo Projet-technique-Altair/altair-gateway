@@ -124,6 +124,8 @@ JWKS_CACHE_MIN_TTL_SECONDS=30
 JWKS_CACHE_MAX_TTL_SECONDS=3600
 USER_ID_CACHE_TTL_SECONDS=300
 USER_ID_CACHE_CLEANUP_INTERVAL_SECONDS=60
+UPSTREAM_RETRY_MAX_ATTEMPTS=3
+UPSTREAM_RETRY_BASE_DELAY_MS=100
 
 # Microservice URLs (defaults available)
 USERS_MS_URL=http://localhost:3001
@@ -154,6 +156,8 @@ JWKS_CACHE_MIN_TTL_SECONDS=30
 JWKS_CACHE_MAX_TTL_SECONDS=3600
 USER_ID_CACHE_TTL_SECONDS=300
 USER_ID_CACHE_CLEANUP_INTERVAL_SECONDS=60
+UPSTREAM_RETRY_MAX_ATTEMPTS=3
+UPSTREAM_RETRY_BASE_DELAY_MS=100
 
 # Microservice URLs (internal Cloud Run services)
 USERS_MS_URL=https://users-ms-xxx.run.app
@@ -187,6 +191,10 @@ JWKS cache env format rules:
 User ID cache env format rules:
 - `USER_ID_CACHE_TTL_SECONDS`: how long `keycloak_id -> user_id` entries stay valid in memory.
 - `USER_ID_CACHE_CLEANUP_INTERVAL_SECONDS`: periodic cleanup interval for removing expired entries.
+
+Upstream retry env format rules:
+- `UPSTREAM_RETRY_MAX_ATTEMPTS`: max attempts per upstream call (first try included).
+- `UPSTREAM_RETRY_BASE_DELAY_MS`: base backoff delay in milliseconds (exponential, capped).
 
 JWKS runtime logs (terminal):
 - `[JWKS] cache hit` → valid JWKS found in memory, no network call to Keycloak.
@@ -552,7 +560,6 @@ The Cloud Run service account requires:
 
 - **No metrics collection** – Cannot monitor cache hit rate, upstream latency
 - **No circuit breakers** – Failed upstream services can cascade failures
-- **No request retry logic** – Transient failures are not retried
 - **No rate limiting** – Vulnerable to abuse
 
 ---
@@ -627,7 +634,7 @@ jwt decode $TOKEN | jq .iss
 - [ ]  **Add streaming proxy** (avoid buffering large bodies)
 - [x]  **Forward critical response headers** (`Set-Cookie`, `Location`, cache headers)
 - [ ]  **Implement circuit breakers** (handle upstream failures gracefully)
-- [ ]  **Add request retry logic** (with exponential backoff)
+- [x]  **Add request retry logic** (simple exponential backoff for transient upstream failures)
 - [ ]  **Enable audience validation** (validate JWT `aud` claim)
 
 ### Low Priority (Future Enhancements)
@@ -650,8 +657,7 @@ This gateway is **functional for MVP deployment** with core authentication, auth
 
 1. Streaming proxy implementation
 2. Circuit breaker patterns
-3. Request retry logic
-4. Audience validation hardening
+3. Audience validation hardening
 
 **Maintainers:** Altaïr Platform Team
 
