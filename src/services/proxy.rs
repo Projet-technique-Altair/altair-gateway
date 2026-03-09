@@ -21,7 +21,12 @@ pub async fn proxy(
 
     let base_url = state.services.get(&service).ok_or(StatusCode::NOT_FOUND)?;
 
-    let url = format!("{}/{}", base_url.trim_end_matches('/'), rest);
+    let query = req.uri().query();
+    let url = if let Some(q) = query {
+        format!("{}/{}?{}", base_url.trim_end_matches('/'), rest, q)
+    } else {
+        format!("{}/{}", base_url.trim_end_matches('/'), rest)
+    };
 
     let method = reqwest::Method::from_bytes(req.method().as_str().as_bytes())
         .map_err(|_| StatusCode::BAD_GATEWAY)?;

@@ -53,6 +53,7 @@ const HDR_ROLES: &str = "x-altair-roles";
 const HDR_KEYCLOAK_ID: &str = "x-altair-keycloak-id";
 const HDR_EMAIL: &str = "x-altair-email";
 const HDR_NAME: &str = "x-altair-name";
+const HDR_PSEUDO: &str = "x-altair-pseudo";
 const HDR_USER_ID: &str = "x-altair-user-id";
 
 use std::collections::HashSet;
@@ -166,6 +167,12 @@ pub async fn jwt_middleware(
         .or(token_data.claims.preferred_username.clone())
         .unwrap_or_else(|| "unknown".to_string());
 
+    let pseudo = token_data
+        .claims
+        .preferred_username
+        .clone()
+        .unwrap_or_else(|| name.clone());
+
     let email = token_data
         .claims
         .email
@@ -198,6 +205,7 @@ pub async fn jwt_middleware(
                 &keycloak_id,
                 &email,
                 &name,
+                &pseudo,
                 &roles_csv,
                 state.upstream_retry_max_attempts,
                 state.upstream_retry_base_delay_ms,
@@ -222,6 +230,7 @@ pub async fn jwt_middleware(
             &keycloak_id,
             &email,
             &name,
+            &pseudo,
             &roles_csv,
             state.upstream_retry_max_attempts,
             state.upstream_retry_base_delay_ms,
@@ -243,23 +252,12 @@ pub async fn jwt_middleware(
             .map_err(|_| ApiError::unauthorized("Invalid user id"))?,
     );
 
-    /*let roles = extract_roles(&token_data.claims);
-    req.extensions_mut().insert(roles.clone());
-
-
-    let name = token_data.claims.name
-        .clone()
-        .or(token_data.claims.preferred_username.clone())
-        .unwrap_or_else(|| "unknown".to_string());
-
-    let email = token_data.claims.email
-        .clone()
-        .unwrap_or_else(|| "unknown@altair.local".to_string());*/
 
     // Anti-spoof: nettoyage
     req.headers_mut().remove(HDR_KEYCLOAK_ID);
     req.headers_mut().remove(HDR_EMAIL);
     req.headers_mut().remove(HDR_NAME);
+    req.headers_mut().remove(HDR_PSEUDO);
     req.headers_mut().remove(HDR_ROLES);
 
     // Injection headers vers MS
@@ -272,6 +270,11 @@ pub async fn jwt_middleware(
     req.headers_mut().insert(
         HeaderName::from_static(HDR_NAME),
         HeaderValue::from_str(&name).map_err(|_| ApiError::unauthorized("Invalid name"))?,
+    );
+
+    req.headers_mut().insert(
+        HeaderName::from_static(HDR_PSEUDO),
+        HeaderValue::from_str(&pseudo).map_err(|_| ApiError::unauthorized("Invalid pseudo"))?,
     );
 
     req.headers_mut().insert(
