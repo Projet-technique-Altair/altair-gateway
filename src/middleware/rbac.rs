@@ -69,9 +69,9 @@ pub async fn rbac_middleware(req: Request<Body>, next: Next) -> Result<Response,
         ("PUT", "labs") => is_creator,
         ("DELETE", "labs") => is_creator,
 
-        ("POST", "sessions") => is_creator,
-        ("PUT", "sessions") => is_creator,
-        ("DELETE", "sessions") => is_creator,
+        ("POST", "sessions") => is_learner,
+        ("PUT", "sessions") => is_learner,
+        ("DELETE", "sessions") => is_learner,
 
         ("POST", "users") => is_creator,
         ("PUT", "users") => is_creator,
