@@ -341,7 +341,7 @@ Roles from JWT claims are mapped to internal enum:
 | --- | --- | --- |
 | `admin` | `Role::Admin` | Full access to all services |
 | `creator` | `Role::Creator` | Read + write access |
-| `learner` | `Role::Learner` | Read-only access |
+| `learner` | `Role::Learner` | Read access + own session lifecycle |
 
 ---
 
@@ -351,22 +351,39 @@ Roles from JWT claims are mapped to internal enum:
 
 Access control is enforced at the **service level**, not the route level.
 
+For the `sessions` service, the gateway now applies an additional route-level allowlist for learner traffic.
+
 **Authorization Matrix:**
 
 | Role | Services | GET (Read) | POST/PUT/DELETE (Write) |
 | --- | --- | --- | --- |
 | **Admin** | All | ✅ | ✅ |
 | **Creator** | users, labs, sessions, starpaths, groups | ✅ | ✅ |
-| **Learner** | users, labs, sessions, starpaths, groups | ✅ | ❌ |
+| **Learner** | users, labs, sessions, starpaths, groups | ✅ | Sessions lifecycle only |
 
 **Examples:**
 
 - ✅ Learner can `GET /labs/123`
 - ❌ Learner cannot `POST /labs` (403 Forbidden)
+- ✅ Learner can `POST /sessions/...` for their own lab session flow
 - ✅ Creator can `POST /labs` (create new lab)
 - ✅ Admin can access any service with any method
 
-**Note:** Fine-grained authorization (e.g., "can this user edit THIS specific lab?") is handled by individual microservices, not the gateway.
+**Note:** Fine-grained authorization (e.g., "can this user edit THIS specific lab?" or "is this session owned by this learner?") is handled by individual microservices, not the gateway.
+
+### Learner Session Route Allowlist
+
+For `sessions`, learner access is intentionally limited to the exact lifecycle endpoints needed by the product flow:
+
+- `POST /sessions/labs/:id/start`
+- `GET /sessions/sessions/:id`
+- `GET /sessions/sessions/:id/progress`
+- `POST /sessions/sessions/:id/validate-step`
+- `POST /sessions/sessions/:id/request-hint`
+- `POST /sessions/sessions/:id/complete`
+- `DELETE /sessions/sessions/:id`
+
+All other learner writes to the `sessions` service are denied at gateway level.
 
 ---
 

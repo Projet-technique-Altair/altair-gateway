@@ -2,6 +2,22 @@ use axum::{body::Body, http::Request, middleware::Next, response::Response};
 
 use crate::{error::ApiError, security::roles::Role};
 
+fn learner_can_access_session_route(method: &str, path: &str) -> bool {
+    let trimmed = path.trim_start_matches('/');
+    let parts: Vec<&str> = trimmed.split('/').collect();
+
+    match (method, parts.as_slice()) {
+        ("POST", ["sessions", "labs", _, "start"]) => true,
+        ("GET", ["sessions", "sessions", _]) => true,
+        ("GET", ["sessions", "sessions", _, "progress"]) => true,
+        ("POST", ["sessions", "sessions", _, "validate-step"]) => true,
+        ("POST", ["sessions", "sessions", _, "request-hint"]) => true,
+        ("POST", ["sessions", "sessions", _, "complete"]) => true,
+        ("DELETE", ["sessions", "sessions", _]) => true,
+        _ => false,
+    }
+}
+
 pub async fn rbac_middleware(req: Request<Body>, next: Next) -> Result<Response, ApiError> {
     // =========================
     // Public endpoints
@@ -57,7 +73,7 @@ pub async fn rbac_middleware(req: Request<Body>, next: Next) -> Result<Response,
         // READ ACCESS
         // =====================
         ("GET", "labs") => is_learner,
-        ("GET", "sessions") => is_learner,
+        ("GET", "sessions") => is_learner && learner_can_access_session_route(method, path),
         ("GET", "users") => is_learner,
         ("GET", "starpaths") => is_learner,
         ("GET", "groups") => is_learner,
@@ -69,9 +85,9 @@ pub async fn rbac_middleware(req: Request<Body>, next: Next) -> Result<Response,
         ("PUT", "labs") => is_creator,
         ("DELETE", "labs") => is_creator,
 
-        ("POST", "sessions") => is_learner,
-        ("PUT", "sessions") => is_learner,
-        ("DELETE", "sessions") => is_learner,
+        ("POST", "sessions") => is_learner && learner_can_access_session_route(method, path),
+        ("PUT", "sessions") => is_learner && learner_can_access_session_route(method, path),
+        ("DELETE", "sessions") => is_learner && learner_can_access_session_route(method, path),
 
         ("POST", "users") => is_creator,
         ("PUT", "users") => is_creator,
