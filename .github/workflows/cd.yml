@@ -1,0 +1,43 @@
+name: Gateway CD
+
+on:
+  # CD is intentionally narrower than CI:
+  # by default it deploys from `main`, and it can also be launched manually.
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  # Needed to checkout the repository.
+  contents: read
+  # Needed by the reusable workflow to authenticate to GCP via OIDC.
+  id-token: write
+
+jobs:
+  deploy:
+    # Calls the reusable CD workflow hosted in altair-ci.
+    uses: Projet-technique-Altair/altair-ci/.github/workflows/microservices-cd.yml@main
+    with:
+      # Shared platform-level values, expected as repository or organization variables.
+      gcp_project_id: ${{ vars.GCP_PROJECT_ID }}
+      region: ${{ vars.GCP_REGION }}
+      artifact_registry_host: ${{ vars.GCP_ARTIFACT_REGISTRY_HOST }}
+      artifact_registry_repo: ${{ vars.GCP_ARTIFACT_REPO }}
+      workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+      deploy_service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      # Service-specific identifiers.
+      service_name: gateway-ms
+      image_name: gateway-ms
+
+      # Build configuration inside this repository.
+      workdir: .
+      dockerfile: Dockerfile
+      platform: linux/amd64
+
+      # Service-specific deployment config.
+      # These variables should be defined in this repository so each service remains explicit.
+      cloud_run_service_account: ${{ vars.CLOUD_RUN_SERVICE_ACCOUNT }}
+      cloud_run_env_vars: ${{ vars.CLOUD_RUN_ENV_VARS }}
+      cloud_run_secrets: ${{ vars.CLOUD_RUN_SECRETS }}
+      extra_deploy_args: ${{ vars.CLOUD_RUN_EXTRA_ARGS }}
