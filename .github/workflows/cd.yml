@@ -1,9 +1,9 @@
 name: Gateway CD
 
 on:
-  # CD is intentionally narrower than CI:
-  # by default it deploys from `main`, and it can also be launched manually.
-  push:
+  workflow_run:
+    workflows: ["Gateway CI"]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -15,6 +15,7 @@ permissions:
 
 jobs:
   deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     # Calls the reusable CD workflow hosted in altair-ci.
     uses: Projet-technique-Altair/altair-ci/.github/workflows/microservices-cd.yml@main
     with:
