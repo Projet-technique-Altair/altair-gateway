@@ -47,6 +47,7 @@ pub async fn proxy(
         .collect();
 
     // Forward body
+    let request_headers = req.headers().clone();
     let body_bytes = to_bytes(req.into_body(), usize::MAX)
         .await
         .map_err(|_| StatusCode::BAD_GATEWAY)?;
@@ -77,6 +78,158 @@ pub async fn proxy(
                     sleep(Duration::from_millis(delay)).await;
                     continue;
                 }
+
+            // =========================
+            // ACCESS CONTROL (LABS / STARPATHS)
+            // =========================
+            if method_str == "GET" && (service == "labs" || service == "starpaths") {
+                println!("[ACCESS] ENTER CHECK");
+
+                let parts: Vec<&str> = rest.split('/').collect();
+                println!("[ACCESS] parts = {:?}", parts);
+
+                let resource_id = if parts.len() == 1 && is_uuid(parts[0]) {
+                    parts[0]
+                } else if parts.len() == 2 && is_uuid(parts[1]) {
+                    parts[1]
+                } else {
+                    println!("[ACCESS] skip route: {}", rest);
+                    return build_axum_response(service.as_str(), resp).await;
+                };
+
+                println!("[ACCESS] resource_id = {}", resource_id);
+
+                let response_headers = resp.headers().clone();
+                let body_bytes = resp.bytes().await.map_err(|_| StatusCode::BAD_GATEWAY)?;
+                let body_str = String::from_utf8_lossy(&body_bytes);
+
+                println!("[ACCESS] resource body = {}", body_str);
+
+                let json: serde_json::Value =
+                    serde_json::from_slice(&body_bytes).map_err(|_| StatusCode::BAD_GATEWAY)?;
+
+                let visibility = json
+                    .get("data")
+                    .and_then(|d| d.get("visibility"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("PUBLIC");
+
+                let creator_id = json
+                    .get("data")
+                    .and_then(|d| d.get("creator_id"))
+                    .and_then(|v| v.as_str());
+
+                let user_id = request_headers
+                    .get("x-altair-user-id")
+                    .and_then(|v| v.to_str().ok())
+                    .ok_or(StatusCode::UNAUTHORIZED)?;
+
+                println!("[ACCESS] creator_id = {:?}", creator_id);
+                println!("[ACCESS] user_id = {}", user_id);
+
+                // 👇 bypass creator
+                if let Some(cid) = creator_id {
+                    if cid == user_id {
+                        println!("[ACCESS] creator bypass");
+                        
+                        // reconstruire réponse direct
+                        let mut axum_response = Response::new(Body::from(body_bytes));
+                        *axum_response.status_mut() =
+                            StatusCode::from_u16(status.as_u16()).map_err(|_| StatusCode::BAD_GATEWAY)?;
+
+                        for (name, value) in response_headers.iter() {
+                            if is_allowed_response_header(name) {
+                                if let Ok(val) = value.to_str() {
+                                    if let (Ok(header_name), Ok(header_value)) = (
+                                        HeaderName::from_bytes(name.as_str().as_bytes()),
+                                        HeaderValue::from_str(val),
+                                    ) {
+                                        axum_response.headers_mut().insert(header_name, header_value);
+                                    }
+                                }
+                            }
+                        }
+
+                        return Ok(axum_response);
+                    }
+                }
+
+                let is_private = visibility == "PRIVATE";
+
+                println!("[ACCESS] visibility = {}", visibility);
+                println!("[ACCESS] is_private = {}", is_private);
+
+                if is_private {
+                    let user_id = request_headers
+                        .get("x-altair-user-id")
+                        .and_then(|v| v.to_str().ok())
+                        .ok_or(StatusCode::UNAUTHORIZED)?;
+
+                    let groups_base = state
+                        .services
+                        .get("groups")
+                        .ok_or(StatusCode::BAD_GATEWAY)?;
+
+                    let access_url = if service == "labs" {
+                        format!(
+                            "{}/internal/access/lab?user_id={}&lab_id={}",
+                            groups_base, user_id, resource_id
+                        )
+                    } else {
+                        format!(
+                            "{}/internal/access/starpath?user_id={}&starpath_id={}",
+                            groups_base, user_id, resource_id
+                        )
+                    };
+
+                    println!("[ACCESS] calling {}", access_url);
+
+                    let access_resp = client
+                        .get(&access_url)
+                        .send()
+                        .await
+                        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+
+                    let access_status = access_resp.status();
+                    let access_json: serde_json::Value = access_resp
+                        .json()
+                        .await
+                        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+
+                    println!("[ACCESS] access status = {}", access_status);
+                    println!("[ACCESS] access body = {}", access_json);
+
+                    let allowed = access_json
+                        .get("data")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false);
+
+                    println!("[ACCESS] allowed = {}", allowed);
+
+                    if !allowed {
+                        return Err(StatusCode::FORBIDDEN);
+                    }
+                }
+
+                let mut axum_response = Response::new(Body::from(body_bytes));
+                *axum_response.status_mut() =
+                    StatusCode::from_u16(status.as_u16()).map_err(|_| StatusCode::BAD_GATEWAY)?;
+
+                for (name, value) in response_headers.iter() {
+                    if is_allowed_response_header(name) {
+                        if let Ok(val) = value.to_str() {
+                            if let (Ok(header_name), Ok(header_value)) = (
+                                HeaderName::from_bytes(name.as_str().as_bytes()),
+                                HeaderValue::from_str(val),
+                            ) {
+                                axum_response.headers_mut().insert(header_name, header_value);
+                            }
+                        }
+                    }
+                }
+
+                return Ok(axum_response);
+            }
 
                 println!("[PROXY] ← status from {} = {}", service, status);
                 return build_axum_response(service.as_str(), resp).await;
@@ -125,6 +278,10 @@ fn backoff_delay(base_delay_ms: u64, attempt: u32) -> u64 {
     let exp = attempt.saturating_sub(1).min(5);
     let factor = 1_u64 << exp;
     base_delay_ms.saturating_mul(factor).min(2_000)
+}
+
+fn is_uuid(s: &str) -> bool {
+    uuid::Uuid::parse_str(s).is_ok()
 }
 
 async fn build_axum_response(
