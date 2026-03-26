@@ -71,6 +71,12 @@ impl AppState {
             std::env::var("GROUPS_MS_URL").unwrap_or_else(|_| "http://localhost:3006".to_string()),
         );
 
+        services.insert(
+            "lab-builder".into(),
+            std::env::var("LAB_BUILDER_MS_URL")
+                .unwrap_or_else(|_| "http://localhost:8086".to_string()),
+        );
+
         let state = Self {
             services,
             user_cache: Arc::new(DashMap::new()),

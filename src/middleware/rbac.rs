@@ -77,6 +77,7 @@ pub async fn rbac_middleware(req: Request<Body>, next: Next) -> Result<Response,
         ("GET", "users") => is_learner,
         ("GET", "starpaths") => is_learner,
         ("GET", "groups") => is_learner,
+        ("GET", "lab-builder") => is_creator,
 
         // =====================
         // WRITE ACCESS
@@ -100,6 +101,10 @@ pub async fn rbac_middleware(req: Request<Body>, next: Next) -> Result<Response,
         ("POST", "groups") => is_creator,
         ("PUT", "groups") => is_creator,
         ("DELETE", "groups") => is_creator,
+
+        ("POST", "lab-builder") => is_creator,
+        ("PUT", "lab-builder") => is_creator,
+        ("DELETE", "lab-builder") => is_creator,
 
         // =====================
         // DEFAULT DENY
